@@ -1,16 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowUpRight, Boxes, Eraser, LogOut, Plus, ScanLine, Sparkles } from "lucide-react";
-import { rooms, statusLabel, type RoomStatus } from "@/lib/rooms";
+import { statusLabel, type Room, type RoomStatus } from "@/lib/rooms";
 
 const statusStyles: Record<RoomStatus, string> = {
   captured: "bg-[rgba(30,50,90,0.08)] text-[rgba(30,50,90,0.7)]",
+  mask_ready: "bg-[rgba(30,50,90,0.12)] text-[rgba(30,50,90,0.8)]",
+  processing: "bg-[rgba(30,50,90,0.16)] text-[rgba(30,50,90,0.9)]",
+  ai_unavailable: "bg-[rgba(180,68,58,0.12)] text-[#9e4037]",
   cleared: "bg-[rgba(30,50,90,0.14)] text-[rgba(30,50,90,0.9)]",
   furnished: "bg-[rgba(30,50,90,0.9)] text-white",
 };
 
-export function DashboardView({ username }: { username: string }) {
+const formatCapturedAt = (value: string) => new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+}).format(new Date(value));
+
+export function DashboardView({ username, rooms }: { username: string; rooms: Room[] }) {
   const stats = [
     { label: "Rooms Captured", value: String(rooms.length), icon: ScanLine },
     { label: "Objects Erased", value: String(rooms.reduce((total, room) => total + room.objectsRemoved, 0)), icon: Eraser },
@@ -41,6 +50,7 @@ export function DashboardView({ username }: { username: string }) {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
+                onClick={() => { window.location.href = "/capture"; }}
                 className="flex items-center bg-[rgba(30,50,90,0.8)] text-white rounded-full pl-2 pr-5 py-2 gap-2.5 hover:bg-[rgba(30,50,90,1)] transition-colors"
               >
                 <div className="bg-white/20 p-1.5 rounded-full flex items-center justify-center">
@@ -106,8 +116,8 @@ export function DashboardView({ username }: { username: string }) {
               </div>
             ) : (
               rooms.map((room, i) => (
-                <motion.div
-                  key={room.id}
+                <Link href={`/room/${room.id}`} key={room.id} className="block">
+                  <motion.div
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.05 * i }}
@@ -118,7 +128,7 @@ export function DashboardView({ username }: { username: string }) {
                   <div className="flex-1 min-w-0">
                     <p className="text-[15px] md:text-[17px] font-normal text-[rgba(30,50,90,0.95)] truncate">{room.name}</p>
                     <p className="text-[12px] text-[rgba(30,50,90,0.55)]">
-                      {room.objectsRemoved} erased · {room.itemsPlaced} placed · {room.capturedAt}
+                      {room.objectsRemoved} erased · {room.itemsPlaced} placed · {formatCapturedAt(room.capturedAt)}
                     </p>
                   </div>
 
@@ -129,7 +139,8 @@ export function DashboardView({ username }: { username: string }) {
                   <div className="bg-[rgba(30,50,90,0.05)] w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center border border-[rgba(30,50,90,0.1)] shrink-0 group-hover:bg-[rgba(30,50,90,0.1)] transition-colors">
                     <ArrowUpRight className="w-4 h-4 text-[rgba(30,50,90,0.8)]" />
                   </div>
-                </motion.div>
+                  </motion.div>
+                </Link>
               ))
             )}
           </div>
