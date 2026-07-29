@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useRouter } from "next/navigation";
 import { ArrowUpRight, Boxes, Eraser, LogOut, Plus, ScanLine, Sparkles } from "lucide-react";
 import { rooms, statusLabel, type RoomStatus } from "@/lib/rooms";
 
@@ -18,12 +17,9 @@ const stats = [
 ];
 
 export function DashboardView({ username }: { username: string }) {
-  const router = useRouter();
-
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
+    window.location.href = "/";
   };
 
   return (

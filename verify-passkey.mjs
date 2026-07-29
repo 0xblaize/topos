@@ -1,5 +1,4 @@
 import { writeFileSync } from 'node:fs';
-
 const CDP = 'http://127.0.0.1:9222';
 
 async function main() {
@@ -8,77 +7,72 @@ async function main() {
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   let id = 0;
   const pending = new Map();
-  const logs = [];
-  const send = (method, params, sessionId) => new Promise((resolve) => {
-    const msgId = ++id;
-    pending.set(msgId, resolve);
-    ws.send(JSON.stringify({ id: msgId, method, params, sessionId }));
-  });
-  ws.onmessage = (e) => {
-    const m = JSON.parse(e.data);
-    if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') {
-      logs.push(m.params.args.map((a) => a.value ?? a.description).join(' '));
-    }
-    if (m.method === 'Runtime.exceptionThrown') logs.push(m.params.exceptionDetails.text);
-    if (m.id && pending.has(m.id)) pending.get(m.id)(m.result);
-  };
+  const send = (m, p) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
+  ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) pending.get(m.id)(m.result); };
   await new Promise((r) => (ws.onopen = r));
   await send('Runtime.enable');
-  await send('Page.enable');
-
-  // Virtual authenticator = real WebAuthn ceremony, no physical device.
   await send('WebAuthn.enable');
   const { authenticatorId } = await send('WebAuthn.addVirtualAuthenticator', {
     options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
   });
-  console.log('virtual authenticator:', authenticatorId);
 
-  const evalJs = async (expression) => {
+  const ev = async (expression) => {
     const out = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true, userGesture: true });
-    if (out.exceptionDetails) return { __error: out.exceptionDetails.exception?.description || out.exceptionDetails.text };
+    if (out.exceptionDetails) return 'ERR: ' + (out.exceptionDetails.exception?.description || out.exceptionDetails.text);
     return out.result.value;
   };
+  const path = () => ev(`location.pathname`);
+  const type = (v) => ev(`(()=>{const i=document.querySelector('input');const s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;s.call(i,'${v}');i.dispatchEvent(new Event('input',{bubbles:true}));})()`);
 
   await new Promise((r) => setTimeout(r, 3500));
 
-  // Open modal via the navbar button
-  console.log('1. open modal:', await evalJs(`(()=>{const b=[...document.querySelectorAll('button')].find(x=>x.textContent.includes('Open Workspace'));if(!b)return 'BUTTON NOT FOUND';b.click();return 'clicked'})()`));
-  await new Promise((r) => setTimeout(r, 900));
-  console.log('   modal visible:', await evalJs(`!!document.querySelector('input[placeholder="studio-north"]')`));
-
-  // Switch to create mode, type name, submit
-  await evalJs(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Create a workspace'))?.click()`);
+  // 1. Register
+  await ev(`[...document.querySelectorAll('button')].find(x=>x.textContent.includes('Open Workspace')).click()`);
+  await new Promise((r) => setTimeout(r, 800));
+  await ev(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Create a workspace'))?.click()`);
   await new Promise((r) => setTimeout(r, 600));
-  await evalJs(`(()=>{const i=document.querySelector('input');const s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;s.call(i,'studio-north');i.dispatchEvent(new Event('input',{bubbles:true}));return i.value})()`);
-  console.log('2. typed username');
-
-  console.log('3. create passkey:', await evalJs(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Create passkey'))?.click() ?? 'clicked'`));
-  await new Promise((r) => setTimeout(r, 5000));
-
-  const afterReg = await evalJs(`JSON.stringify({url:location.pathname,heading:document.querySelector('h1')?.textContent,err:document.querySelector('.text-\\\\[13px\\\\]')?.textContent})`);
-  console.log('4. after registration:', afterReg);
-
-  const creds = await send('WebAuthn.getCredentials', { authenticatorId });
-  console.log('5. credentials stored on authenticator:', creds.credentials.length);
+  await type('studio-north');
+  await ev(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Create passkey'))?.click()`);
+  await new Promise((r) => setTimeout(r, 6000));
+  console.log('1. registered ->', await path());
 
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   writeFileSync('C:/Users/USER/topos/verify-dashboard.png', Buffer.from(shot.data, 'base64'));
-  console.log('6. dashboard screenshot written');
 
-  // Sign out, then sign back in with the same passkey
-  console.log('7. sign out:', await evalJs(`document.querySelector('button[aria-label="Sign out"]')?.click() ?? 'clicked'`));
-  await new Promise((r) => setTimeout(r, 3000));
-  console.log('   back at:', await evalJs(`location.pathname`));
+  // 2. Sign out
+  await ev(`document.querySelector('button[aria-label="Sign out"]')?.click()`);
+  await new Promise((r) => setTimeout(r, 3500));
+  console.log('2. signed out ->', await path());
 
-  await evalJs(`[...document.querySelectorAll('button')].find(x=>x.textContent.includes('Open Workspace'))?.click()`);
+  // 3. Direct dashboard access after logout should bounce
+  await ev(`location.href='/dashboard'`);
+  await new Promise((r) => setTimeout(r, 3500));
+  console.log('3. /dashboard while logged out ->', await path());
+
+  // 4. Sign back in with the SAME passkey
+  await new Promise((r) => setTimeout(r, 1500));
+  await ev(`[...document.querySelectorAll('button')].find(x=>x.textContent.includes('Open Workspace'))?.click()`);
   await new Promise((r) => setTimeout(r, 900));
-  await evalJs(`(()=>{const i=document.querySelector('input');const s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;s.call(i,'studio-north');i.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  console.log('8. sign in:', await evalJs(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Continue with passkey'))?.click() ?? 'clicked'`));
-  await new Promise((r) => setTimeout(r, 5000));
-  console.log('9. after sign-in:', await evalJs(`JSON.stringify({url:location.pathname,heading:document.querySelector('h1')?.textContent})`));
+  await type('studio-north');
+  await ev(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Continue with passkey'))?.click()`);
+  await new Promise((r) => setTimeout(r, 6000));
+  console.log('4. signed back in ->', await path());
 
-  console.log('--- console errors ---');
-  console.log(logs.length ? logs.join('\n') : '(none)');
+  // 5. Probe: sign in as a name with no passkey
+  await ev(`document.querySelector('button[aria-label="Sign out"]')?.click()`);
+  await new Promise((r) => setTimeout(r, 3500));
+  await ev(`[...document.querySelectorAll('button')].find(x=>x.textContent.includes('Open Workspace'))?.click()`);
+  await new Promise((r) => setTimeout(r, 900));
+  await type('ghost-user');
+  await ev(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Continue with passkey'))?.click()`);
+  await new Promise((r) => setTimeout(r, 3000));
+  console.log('5. unknown user error ->', await ev(`[...document.querySelectorAll('p')].map(p=>p.textContent).find(t=>t.includes('passkey registered')) ?? 'NO ERROR SHOWN'`), '| path:', await path());
+
+  // 6. Probe: empty username
+  await type('');
+  await ev(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Continue with passkey'))?.click()`);
+  await new Promise((r) => setTimeout(r, 1200));
+  console.log('6. empty name error ->', await ev(`[...document.querySelectorAll('p')].map(p=>p.textContent).find(t=>t.includes('workspace name')) ?? 'NO ERROR SHOWN'`));
 
   ws.close();
   await fetch(`${CDP}/json/close/${target.id}`);

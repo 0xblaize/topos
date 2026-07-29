@@ -11,7 +11,7 @@ async function main() {
   await new Promise((r) => (ws.onopen = r));
   await send('Runtime.enable');
   await send('WebAuthn.enable');
-  await send('WebAuthn.addVirtualAuthenticator', {
+  const { authenticatorId } = await send('WebAuthn.addVirtualAuthenticator', {
     options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
   });
 
@@ -20,23 +20,22 @@ async function main() {
     if (out.exceptionDetails) return 'ERR: ' + (out.exceptionDetails.exception?.description || out.exceptionDetails.text);
     return out.result.value;
   };
+  const state = () => ev(`JSON.stringify({path:location.pathname, overlay:!!document.querySelector('.fixed.inset-0.z-50'), body:document.body.innerText.replace(/\\n/g,' | ').slice(0,180)})`);
 
   await new Promise((r) => setTimeout(r, 3500));
 
   await ev(`[...document.querySelectorAll('button')].find(x=>x.textContent.includes('Open Workspace')).click()`);
-  await new Promise((r) => setTimeout(r, 800));
+  await new Promise((r) => setTimeout(r, 900));
   await ev(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Create a workspace'))?.click()`);
-  await new Promise((r) => setTimeout(r, 500));
+  await new Promise((r) => setTimeout(r, 700));
   await ev(`(()=>{const i=document.querySelector('input');const s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;s.call(i,'studio-north');i.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  await new Promise((r) => setTimeout(r, 300));
-  console.log('input value in React:', await ev(`document.querySelector('input').value`));
+  await new Promise((r) => setTimeout(r, 400));
+  console.log('typed value:', await ev(`document.querySelector('input')?.value`));
 
   await ev(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Create passkey'))?.click()`);
-  await new Promise((r) => setTimeout(r, 4000));
-
-  // Dump the whole modal so the error line is visible
-  console.log('modal text:', await ev(`document.querySelector('.rounded-\\\\[2rem\\\\]')?.innerText.replace(/\\n/g,' | ') ?? 'MODAL GONE'`));
-  console.log('path:', await ev(`location.pathname`));
+  await new Promise((r) => setTimeout(r, 6000));
+  console.log('after register:', await state());
+  console.log('creds on device:', (await send('WebAuthn.getCredentials', { authenticatorId })).credentials.length);
 
   ws.close();
   await fetch(`${CDP}/json/close/${target.id}`);
