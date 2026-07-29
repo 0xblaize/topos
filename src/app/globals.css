@@ -1,77 +1,25 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  body {
-    @apply m-0 p-0;
-  }
-  html {
-    scroll-behavior: smooth;
-  }
+@font-face {
+    font-family: "Helvetica Regular";
+    src: url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.eot");
+    src: url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.eot?#iefix")format("embedded-opentype"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.woff2")format("woff2"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.woff")format("woff"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.ttf")format("truetype"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.svg#Helvetica Regular")format("svg");
 }
 
-.animate-on-scroll-hidden {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1), transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.animate-on-scroll-hidden[data-animation-direction="left"] { transform: translateX(-50px); }
-.animate-on-scroll-hidden[data-animation-direction="right"] { transform: translateX(50px); }
-.animate-on-scroll-visible { opacity: 1; transform: translate(0, 0); }
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.animate-spin-slow { animation: spin-slow 12s linear infinite; }
-
-.hero-cutout { clip-path: polygon(0 0, 100% 0, 100% 85%, 0% 100%); }
-@media (min-width: 768px) {
-  .hero-cutout { clip-path: polygon(0 0, 100% 0, 92% 100%, 0% 100%); }
+@theme {
+  --font-helvetica: "Helvetica Regular", ui-sans-serif, system-ui, sans-serif;
 }
 
-.heading-stroke {
-  -webkit-text-fill-color: transparent;
-  -webkit-text-stroke-width: 1px;
-  -webkit-text-stroke-color: #C6FF4A;
+:root {
+  font-family: var(--font-helvetica);
 }
 
-.project-card:hover .card-title { transform: translateY(-4px); }
-.project-card:hover .card-description { opacity: 1; transform: translateY(0); }
-.project-card:hover .project-cta {
-  opacity: 1;
-  transform: translateY(-8px);
-  transition-delay: 150ms;
-  visibility: visible;
-}
-.project-card:hover { box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.6); }
-
-@media (max-width: 768px) {
-  #project-showcase {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    min-height: auto;
-    padding: 0 20px;
-  }
-  .project-card {
-    position: relative !important;
-    transform: none !important;
-    width: 100% !important;
-    height: auto !important;
-    margin-bottom: 1rem;
-  }
-  .project-card:hover { transform: translateY(-10px) !important; }
-}
-
-.group:hover .scene-shell { filter: brightness(0.75); }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-    scroll-behavior: auto !important;
-  }
-  .animate-on-scroll-hidden { opacity: 1; transform: none; }
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background-color: #f0f0f0;
 }
