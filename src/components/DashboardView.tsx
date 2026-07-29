@@ -10,13 +10,13 @@ const statusStyles: Record<RoomStatus, string> = {
   furnished: "bg-[rgba(30,50,90,0.9)] text-white",
 };
 
-const stats = [
-  { label: "Rooms Captured", value: "5", icon: ScanLine },
-  { label: "Objects Erased", value: "32", icon: Eraser },
-  { label: "Models Placed", value: "8", icon: Boxes },
-];
-
 export function DashboardView({ username }: { username: string }) {
+  const stats = [
+    { label: "Rooms Captured", value: String(rooms.length), icon: ScanLine },
+    { label: "Objects Erased", value: String(rooms.reduce((total, room) => total + room.objectsRemoved, 0)), icon: Eraser },
+    { label: "Models Placed", value: String(rooms.reduce((total, room) => total + room.itemsPlaced, 0)), icon: Boxes },
+  ];
+
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/";
@@ -97,32 +97,41 @@ export function DashboardView({ username }: { username: string }) {
               <span className="text-[12px] text-[rgba(30,50,90,0.55)]">{rooms.length} rooms</span>
             </div>
 
-            {rooms.map((room, i) => (
-              <motion.div
-                key={room.id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.05 * i }}
-                className="group px-5 md:px-7 py-5 border-b border-[rgba(30,50,90,0.06)] last:border-b-0 flex items-center gap-4 md:gap-6 hover:bg-white/40 transition-colors cursor-pointer"
-              >
-                <span className="hidden sm:block text-[12px] text-[rgba(30,50,90,0.45)] w-14 shrink-0">{room.id}</span>
+            {rooms.length === 0 ? (
+              <div className="px-5 md:px-7 py-12 text-center">
+                <p className="text-[15px] md:text-[17px] text-[rgba(30,50,90,0.8)]">No room captures yet</p>
+                <p className="mt-2 text-[12px] md:text-[13px] text-[rgba(30,50,90,0.55)]">
+                  Start with one photo to create your first spatial workspace.
+                </p>
+              </div>
+            ) : (
+              rooms.map((room, i) => (
+                <motion.div
+                  key={room.id}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 0.05 * i }}
+                  className="group px-5 md:px-7 py-5 border-b border-[rgba(30,50,90,0.06)] last:border-b-0 flex items-center gap-4 md:gap-6 hover:bg-white/40 transition-colors cursor-pointer"
+                >
+                  <span className="hidden sm:block text-[12px] text-[rgba(30,50,90,0.45)] w-14 shrink-0">{room.id}</span>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-[15px] md:text-[17px] font-normal text-[rgba(30,50,90,0.95)] truncate">{room.name}</p>
-                  <p className="text-[12px] text-[rgba(30,50,90,0.55)]">
-                    {room.objectsRemoved} erased · {room.itemsPlaced} placed · {room.capturedAt}
-                  </p>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] md:text-[17px] font-normal text-[rgba(30,50,90,0.95)] truncate">{room.name}</p>
+                    <p className="text-[12px] text-[rgba(30,50,90,0.55)]">
+                      {room.objectsRemoved} erased · {room.itemsPlaced} placed · {room.capturedAt}
+                    </p>
+                  </div>
 
-                <span className={`hidden md:inline-block text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-full ${statusStyles[room.status]}`}>
-                  {statusLabel[room.status]}
-                </span>
+                  <span className={`hidden md:inline-block text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-full ${statusStyles[room.status]}`}>
+                    {statusLabel[room.status]}
+                  </span>
 
-                <div className="bg-[rgba(30,50,90,0.05)] w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center border border-[rgba(30,50,90,0.1)] shrink-0 group-hover:bg-[rgba(30,50,90,0.1)] transition-colors">
-                  <ArrowUpRight className="w-4 h-4 text-[rgba(30,50,90,0.8)]" />
-                </div>
-              </motion.div>
-            ))}
+                  <div className="bg-[rgba(30,50,90,0.05)] w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center border border-[rgba(30,50,90,0.1)] shrink-0 group-hover:bg-[rgba(30,50,90,0.1)] transition-colors">
+                    <ArrowUpRight className="w-4 h-4 text-[rgba(30,50,90,0.8)]" />
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </section>
