@@ -1,28 +1,24 @@
 import { NextResponse } from "next/server";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
-import { SESSION_COOKIE, createSession, findUserByCredentialId } from "@/lib/authStore";
+import { consumeChallenge, createSession, findUserByCredentialId, getPendingChallenge, getUserById, SESSION_COOKIE, updateCredentialCounter } from "@/lib/authStore";
 import { getRpConfig } from "@/lib/rp";
 
 export async function POST(request: Request) {
   const { response } = await request.json();
-  const user = findUserByCredentialId(response?.id ?? "");
+  const user = await findUserByCredentialId(response?.id ?? "");
+  if (!user) return NextResponse.json({ error: "Unknown passkey" }, { status: 400 });
 
-  if (!user?.currentChallenge) {
-    return NextResponse.json({ error: "Unknown passkey" }, { status: 400 });
-  }
-
-  const credential = user.credentials.find((c) => c.id === response.id);
-  if (!credential) {
-    return NextResponse.json({ error: "Unknown passkey" }, { status: 400 });
-  }
+  const credential = user.credentials.find((item) => item.id === response.id);
+  if (!credential) return NextResponse.json({ error: "Unknown passkey" }, { status: 400 });
+  const expectedChallenge = await getPendingChallenge(user.id, "authentication");
+  if (!expectedChallenge) return NextResponse.json({ error: "No pending login" }, { status: 400 });
 
   const { rpID, origin } = await getRpConfig();
-
   let verification;
   try {
     verification = await verifyAuthenticationResponse({
       response,
-      expectedChallenge: user.currentChallenge,
+      expectedChallenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
       credential: {
@@ -36,17 +32,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Passkey rejected" }, { status: 400 });
   }
 
-  if (!verification.verified) {
-    return NextResponse.json({ error: "Passkey rejected" }, { status: 400 });
-  }
+  if (!verification.verified) return NextResponse.json({ error: "Passkey rejected" }, { status: 400 });
+  if (!(await consumeChallenge(expectedChallenge))) return NextResponse.json({ error: "Login challenge expired" }, { status: 400 });
+  await updateCredentialCounter(credential.id, verification.authenticationInfo.newCounter);
+  const currentUser = await getUserById(user.id);
 
-  credential.counter = verification.authenticationInfo.newCounter;
-  user.currentChallenge = undefined;
-
-  const res = NextResponse.json({ verified: true, username: user.username });
-  res.cookies.set(SESSION_COOKIE, createSession(user.username), {
+  const res = NextResponse.json({ verified: true, username: currentUser?.username ?? user.username });
+  res.cookies.set(SESSION_COOKIE, await createSession(user.id), {
     httpOnly: true,
     sameSite: "lax",
+    secure: origin.startsWith("https://"),
     path: "/",
   });
   return res;

@@ -28,7 +28,7 @@ export function BottomRightCorner() {
       </div>
 
       <div className="flex flex-col">
-        <span className="text-[16px] md:text-[20px] font-normal text-[rgba(30,50,90,0.95)]">Documentation</span>
+        <span className="text-[16px] md:text-[20px] font-normal text-[rgba(30,50,90,0.95)]">Static AR</span>
         <div className="flex items-center gap-1 text-[rgba(30,50,90,0.6)] cursor-pointer hover:text-[rgba(30,50,90,0.8)] transition-colors">
           <span className="text-[12px] md:text-[15px] font-normal">Library</span>
           <ChevronRight className="w-3 h-3 md:w-4 md:h-4" />

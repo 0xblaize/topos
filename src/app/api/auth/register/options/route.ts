@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
-import { upsertUser } from "@/lib/authStore";
+import { saveChallenge, upsertUser } from "@/lib/authStore";
 import { getRpConfig } from "@/lib/rp";
 
 export async function POST(request: Request) {
@@ -10,21 +10,20 @@ export async function POST(request: Request) {
   }
 
   const { rpName, rpID } = await getRpConfig();
-  const user = upsertUser(username);
-
+  const user = await upsertUser(username);
   const options = await generateRegistrationOptions({
     rpName,
     rpID,
     userName: user.username,
     userID: new TextEncoder().encode(user.id),
     attestationType: "none",
-    excludeCredentials: user.credentials.map((c) => ({ id: c.id, transports: c.transports })),
+    excludeCredentials: user.credentials.map((credential) => ({ id: credential.id, transports: credential.transports })),
     authenticatorSelection: {
       residentKey: "preferred",
       userVerification: "preferred",
     },
   });
 
-  user.currentChallenge = options.challenge;
+  await saveChallenge(user.id, options.challenge, "registration");
   return NextResponse.json(options);
 }

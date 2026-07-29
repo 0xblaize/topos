@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, sessions } from "@/lib/authStore";
+import { deleteSession, SESSION_COOKIE } from "@/lib/authStore";
 
 export async function POST(request: Request) {
-  const token = request.headers.get("cookie")?.match(/topos_session=([^;]+)/)?.[1];
-  if (token) sessions.delete(token);
+  const token = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
+  if (token) await deleteSession(token);
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });

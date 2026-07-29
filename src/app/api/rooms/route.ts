@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import { createRoom, listRooms } from "@/lib/rooms";
-import { getSessionUsername } from "@/lib/session";
+import { getSessionUser } from "@/lib/session";
 
 const MAX_IMAGE_LENGTH = 12_000_000;
 const imageDataUrlPattern = /^data:image\/(jpeg|jpg|png|webp);base64,[a-zA-Z0-9+/=]+$/;
 
 export async function GET(request: Request) {
-  const owner = getSessionUsername(request);
-  if (!owner) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return NextResponse.json({ rooms: listRooms(owner) });
+  const session = await getSessionUser(request);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return NextResponse.json({ rooms: await listRooms(session.id) }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
-  const owner = getSessionUsername(request);
-  if (!owner) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await getSessionUser(request);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: { name?: unknown; sourceImageDataUrl?: unknown };
   try {
@@ -29,5 +29,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Upload a supported JPEG, PNG, or WebP image under 9 MB" }, { status: 400 });
   }
 
-  return NextResponse.json({ room: createRoom(owner, name, sourceImageDataUrl) }, { status: 201 });
+  return NextResponse.json({ room: await createRoom(session.id, name, sourceImageDataUrl) }, { status: 201 });
 }

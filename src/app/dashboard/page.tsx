@@ -1,14 +1,14 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, sessions } from "@/lib/authStore";
+import { getSession, SESSION_COOKIE } from "@/lib/authStore";
 import { listRooms } from "@/lib/rooms";
 import { DashboardView } from "@/components/DashboardView";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const username = token ? sessions.get(token) : undefined;
-
-  if (!username) redirect("/");
-
-  return <DashboardView username={username} rooms={listRooms(username)} />;
+  const session = token ? await getSession(token) : undefined;
+  if (!session) redirect("/");
+  return <DashboardView username={session.username} rooms={await listRooms(session.id)} />;
 }
