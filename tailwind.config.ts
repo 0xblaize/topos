@@ -5,17 +5,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#090b0d",
-        panel: "#11161a",
-        line: "#2b3439",
-        signal: "#c6ff4a",
-        mist: "#e9e8e2",
-        muted: "#8d999d",
-        cyan: "#61e5ff",
+        "brand-primary": "#0B0D0E",
+        "brand-accent": "#C6FF4A",
+        "brand-secondary": "#1E2528",
+        "neutral-background": "#0F1214",
+        "text-primary": "#ECEFEA",
+        "text-secondary": "#7E8B8F",
+        "nav-divider": "#2C3639",
       },
       fontFamily: {
-        sans: ["var(--font-manrope)", "Arial", "sans-serif"],
+        primary: ["var(--font-display)", "serif"],
+        secondary: ["var(--font-body)", "Helvetica", "Arial", "sans-serif"],
         mono: ["var(--font-mono)", "monospace"],
+      },
+      spacing: {
+        "nav-height": "57.6px",
+      },
+      borderRadius: {
+        project: "24px",
+      },
+      letterSpacing: {
+        tightest: "-0.05em",
       },
     },
   },

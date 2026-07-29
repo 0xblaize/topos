@@ -1,31 +1,29 @@
-import { Capabilities } from "@/components/landing/Capabilities";
-import { FinalCta } from "@/components/landing/FinalCta";
-import { Footer } from "@/components/landing/Footer";
-import { Hero } from "@/components/landing/Hero";
-import { Navbar } from "@/components/landing/Navbar";
-import { RoomComparison } from "@/components/landing/RoomComparison";
-import { Workflow } from "@/components/landing/Workflow";
+"use client";
 
-const useCases = [
-  ["01", "Home stagers", "Show the potential of a room before a single piece is moved."],
-  ["02", "Furniture teams", "Let customers test the feeling of a collection in the context they own."],
-  ["03", "Renters & designers", "Take a room from existing reality to its next configuration in one flow."],
-];
+import { DemoPitch } from "@/components/DemoPitch";
+import { Engine } from "@/components/Engine";
+import { Hero } from "@/components/Hero";
+import { Pipeline } from "@/components/Pipeline";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
+import { FinalCta, Stack } from "@/components/Stack";
+import { useScrollReveal } from "@/components/useScrollReveal";
 
 export default function Home() {
+  useScrollReveal();
+
   return (
-    <main>
-      <Navbar />
-      <Hero />
-      <Workflow />
-      <RoomComparison />
-      <Capabilities />
-      <section id="use-cases" className="use-cases section">
-        <div className="use-case-heading"><div className="eyebrow-row"><span className="pulse-dot" /> DESIGNED FOR TRANSITION</div><h2>The room is already<br />full of <i>possibility.</i></h2></div>
-        <div className="use-case-grid">{useCases.map(([number, title, copy]) => <article key={number}><span>{number}</span><div className="use-case-icon" aria-hidden="true"><i /><i /></div><h3>{title}</h3><p>{copy}</p><a href="#contact" aria-label={`Learn about Topos for ${title}`}>Explore <b>↗</b></a></article>)}</div>
-      </section>
-      <FinalCta />
-      <Footer />
-    </main>
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-neutral-background font-secondary text-text-primary">
+      <SiteHeader />
+      <main className="flex-grow pt-32">
+        <Hero />
+        <Pipeline />
+        <Engine />
+        <DemoPitch />
+        <Stack />
+        <FinalCta />
+      </main>
+      <SiteFooter />
+    </div>
   );
 }
