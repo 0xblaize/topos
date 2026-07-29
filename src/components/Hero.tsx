@@ -1,12 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "motion/react";
 import { BottomLeftCard } from "./BottomLeftCard";
 import { BottomRightCorner } from "./BottomRightCorner";
 import { HeroBadge } from "./HeroBadge";
 import { Navbar } from "./Navbar";
+import { PasskeyModal } from "./PasskeyModal";
 
 export function Hero() {
+  const [authOpen, setAuthOpen] = useState(false);
+
   return (
     <div className="w-full h-screen flex items-center justify-center p-3 md:p-5 bg-[#f0f0f0]">
       <section className="relative w-full max-w-[1536px] h-full rounded-[1.5rem] md:rounded-[3rem] overflow-hidden shadow-none flex flex-col items-center bg-white/10 group">
@@ -20,7 +24,7 @@ export function Hero() {
         />
 
         <div className="relative z-10 w-full h-full flex flex-col items-center">
-          <Navbar />
+          <Navbar onAuthClick={() => setAuthOpen(true)} />
 
           <div className="w-full flex flex-col items-center pt-8 px-6 text-center max-w-4xl">
             <HeroBadge />
@@ -47,6 +51,8 @@ export function Hero() {
           <BottomLeftCard />
           <BottomRightCorner />
         </div>
+
+        <PasskeyModal open={authOpen} onClose={() => setAuthOpen(false)} />
       </section>
     </div>
   );
