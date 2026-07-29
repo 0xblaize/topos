@@ -4,12 +4,10 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Fingerprint, KeyRound, Loader2, X } from "lucide-react";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
-import { useRouter } from "next/navigation";
 
 type Mode = "signin" | "create";
 
 export function PasskeyModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
   const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,7 +43,7 @@ export function PasskeyModal({ open, onClose }: { open: boolean; onClose: () => 
         const response = await startAuthentication({ optionsJSON: options });
         await post("/api/auth/login/verify", { response });
       }
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     } catch (err) {
       const message = err instanceof Error ? err.message : "Passkey failed";
       setError(message.includes("NotAllowed") ? "Passkey prompt was dismissed" : message);
