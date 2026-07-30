@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { processRoomImage, AiBusyError, AiUnavailableError } from "@/lib/ai/provider";
+import { processRoomImage, startReplicatePrediction, AiBusyError, AiUnavailableError } from "@/lib/ai/provider";
 import { getRoom, updateRoom } from "@/lib/rooms";
 import { getSessionUser } from "@/lib/session";
 
@@ -13,15 +13,21 @@ export async function POST(request: Request, context: RouteContext) {
   if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
   if (!room.maskDataUrl) return NextResponse.json({ error: "Save a clutter mask first" }, { status: 400 });
 
-  await updateRoom(session.id, id, { status: "processing" });
+  await updateRoom(session.id, id, { status: "processing", processingStartedAt: new Date().toISOString(), processingAttempts: room.processingAttempts + 1, processingErrorCode: undefined, processingErrorMessage: undefined });
   try {
+    if (process.env.TOPOS_REPLICATE_WEBHOOK_URL) {
+      const processingJobId = await startReplicatePrediction(room);
+      const updatedRoom = await updateRoom(session.id, id, { processingJobId });
+      return NextResponse.json({ room: updatedRoom, processing: true }, { status: 202 });
+    }
     const cleanedImageDataUrl = await processRoomImage(room);
-    const updatedRoom = await updateRoom(session.id, id, { cleanedImageDataUrl, objectsRemoved: 1, status: "cleared" });
+    const updatedRoom = await updateRoom(session.id, id, { cleanedImageDataUrl, status: "cleared", processingCompletedAt: new Date().toISOString(), processingJobId: undefined });
     return NextResponse.json({ room: updatedRoom });
   } catch (error) {
     const unavailable = error instanceof AiUnavailableError;
     const busy = error instanceof AiBusyError;
-    const updatedRoom = await updateRoom(session.id, id, { status: unavailable ? "ai_unavailable" : "mask_ready" });
+    const code = unavailable ? "ai_unavailable" : busy ? "ai_busy" : "processing_failed";
+    const updatedRoom = await updateRoom(session.id, id, { status: unavailable ? "ai_unavailable" : "mask_ready", processingErrorCode: code, processingErrorMessage: unavailable || busy ? (error instanceof Error ? error.message : "AI service unavailable") : "AI processing failed" });
     return NextResponse.json({
       error: error instanceof Error ? error.message : "AI processing failed",
       code: unavailable ? "ai_unavailable" : busy ? "ai_busy" : "processing_failed",

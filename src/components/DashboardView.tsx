@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight, Boxes, Eraser, LogOut, Plus, ScanLine, Sparkles } from "lucide-react";
-import { statusLabel, type Room, type RoomStatus } from "@/lib/rooms";
+import { statusLabel, type RoomSummary, type RoomStatus } from "@/lib/rooms";
 
 const statusStyles: Record<RoomStatus, string> = {
   captured: "bg-[rgba(30,50,90,0.08)] text-[rgba(30,50,90,0.7)]",
@@ -20,7 +20,7 @@ const formatCapturedAt = (value: string) => new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 }).format(new Date(value));
 
-export function DashboardView({ username, rooms }: { username: string; rooms: Room[] }) {
+export function DashboardView({ username, rooms }: { username: string; rooms: RoomSummary[] }) {
   const [visibleRooms, setVisibleRooms] = useState(rooms);
   const [message, setMessage] = useState<string | null>(null);
   const deleteRoom = async (event: React.MouseEvent, id: string, name: string) => {

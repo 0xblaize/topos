@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRoom, updateRoom } from "@/lib/rooms";
 import { getSessionUser } from "@/lib/session";
+import { putDataUrl } from "@/lib/storage";
 
 type RouteContext = { params: Promise<{ id: string }> };
 const maskPattern = /^data:image\/(png|webp);base64,[a-zA-Z0-9+/=]+$/;
@@ -20,5 +21,11 @@ export async function POST(request: Request, context: RouteContext) {
   const maskDataUrl = typeof body.maskDataUrl === "string" ? body.maskDataUrl : "";
   if (!maskPattern.test(maskDataUrl) || maskDataUrl.length > 12_000_000) return NextResponse.json({ error: "Invalid mask" }, { status: 400 });
 
-  return NextResponse.json({ room: await updateRoom(session.id, id, { maskDataUrl, status: "mask_ready" }) });
+  let maskAsset;
+  try {
+    maskAsset = await putDataUrl(`rooms/${id}/mask`, maskDataUrl);
+  } catch {
+    maskAsset = undefined;
+  }
+  return NextResponse.json({ room: await updateRoom(session.id, id, { maskDataUrl, maskKey: maskAsset?.key, status: "mask_ready" }) });
 }

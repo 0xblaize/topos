@@ -11,6 +11,24 @@ type ReplicatePrediction = {
   urls?: { get?: string };
 };
 
+export async function startReplicatePrediction(room: Room) {
+  if (!room.maskDataUrl) throw new Error("Save a clutter mask before processing");
+  const replicateToken = process.env.REPLICATE_API_TOKEN;
+  const version = process.env.REPLICATE_SDXL_INPAINT_VERSION;
+  const webhook = process.env.TOPOS_REPLICATE_WEBHOOK_URL;
+  if (!replicateToken || !version || !webhook) throw new AiUnavailableError("Configure Replicate and TOPOS_REPLICATE_WEBHOOK_URL for background erase processing");
+  const response = await fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${replicateToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ version, webhook, webhook_events_filter: ["completed"], input: { image: room.sourceImageDataUrl, mask: room.maskDataUrl, prompt: process.env.TOPOS_INPAINT_PROMPT ?? "Photorealistic empty room, preserve the existing walls, floor, windows, lighting, and camera perspective, remove everything covered by the mask", negative_prompt: "people, furniture, clutter, distorted architecture, warped floor, extra objects" } }),
+  });
+  if (response.status === 429) throw new AiBusyError("The AI service is busy. Wait a moment and try again.");
+  if (!response.ok) throw new Error(`Replicate returned ${response.status}`);
+  const prediction = await response.json() as ReplicatePrediction;
+  if (!prediction.id) throw new Error("Replicate returned no prediction ID");
+  return prediction.id;
+}
+
 export async function processRoomImage(room: Room) {
   if (!room.maskDataUrl) throw new Error("Save a clutter mask before processing");
 
@@ -82,7 +100,7 @@ async function waitForPrediction(initial: ReplicatePrediction, token: string) {
   throw new Error("Replicate processing timed out");
 }
 
-async function fetchImageAsDataUrl(url: string) {
+export async function fetchImageAsDataUrl(url: string) {
   const response = await fetch(url);
   if (!response.ok) throw new Error("Could not download the cleaned image");
   const contentType = response.headers.get("content-type")?.split(";")[0] ?? "image/png";

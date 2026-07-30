@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, type ReactNode, Suspense, useState } from "react";
+import { Component, type ReactNode, Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Clone, Html, useGLTF } from "@react-three/drei";
 import { ArrowLeft, Armchair, LampCeiling, Loader2, Minus, Plus, Redo2, RotateCcw, Save, Sparkles, Trash2, TreePine, Undo2 } from "lucide-react";
@@ -30,6 +30,27 @@ export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
   const [selectedModel, setSelectedModel] = useState("sofa");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (room.status !== "processing") return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/rooms/${room.id}`, { cache: "no-store" });
+        if (!response.ok || cancelled) return;
+        const body = await response.json() as { room?: Room };
+        if (body.room && !cancelled) {
+          setRoom(body.room);
+          if (body.room.status === "cleared") setMessage("The room is cleared. Build on the empty canvas.");
+          if (body.room.status !== "processing" && body.room.processingErrorMessage) setMessage(body.room.processingErrorMessage);
+        }
+      } catch {
+        if (!cancelled) setMessage("Could not refresh processing status.");
+      }
+    };
+    const timer = window.setInterval(poll, 3000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [room.id, room.status]);
 
   const addFurniture = () => {
     const placement: FurniturePlacement = {
@@ -119,8 +140,8 @@ export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
       const response = await fetch(`/api/rooms/${room.id}/process`, { method: "POST" });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "AI processing unavailable");
-      setRoom(body.room);
-      setMessage("The room is cleared. Build on the empty canvas.");
+      if (body.room) setRoom(body.room);
+      setMessage(body.processing ? "AI erase started. This workspace will update automatically." : "The room is cleared. Build on the empty canvas.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "AI processing unavailable");
     } finally {
@@ -190,7 +211,8 @@ export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
               <button onClick={() => adjustSelected({ scale: Math.min(1.6, selectedPlacement.scale + 0.1) })} disabled={busy} className="flex items-center justify-center rounded-full border border-[rgba(30,50,90,0.14)] py-2 text-[rgba(30,50,90,0.7)]"><Plus className="h-3 w-3" /></button>
             </div>}
             <button onClick={savePlacements} disabled={busy || placements.length === 0} className="mt-2 flex w-full items-center justify-center gap-2 rounded-full border border-[rgba(30,50,90,0.16)] py-3 text-sm text-[rgba(30,50,90,0.75)] disabled:opacity-50"><Save className="h-4 w-4" /> {busy ? "Saving…" : "Save placement"}</button>
-            {room.maskDataUrl && !room.cleanedImageDataUrl && <button onClick={processRoom} disabled={busy} className="mt-5 w-full rounded-full border border-[rgba(180,68,58,0.2)] bg-[rgba(180,68,58,0.07)] py-3 text-sm text-[#9e4037] disabled:opacity-50">Run AI erase</button>}
+            {room.maskDataUrl && !room.cleanedImageDataUrl && room.status !== "processing" && <button onClick={processRoom} disabled={busy} className="mt-5 w-full rounded-full border border-[rgba(180,68,58,0.2)] bg-[rgba(180,68,58,0.07)] py-3 text-sm text-[#9e4037] disabled:opacity-50">Run AI erase</button>}
+            {room.status === "processing" && <p className="mt-5 text-sm text-[rgba(30,50,90,0.72)]">AI erase is processing. This workspace will update automatically.</p>}
             <p className="mt-5 text-xs leading-relaxed text-[rgba(30,50,90,0.58)]">Furniture is placed on a fixed-angle floor plane. This is static AR, not live camera tracking.</p>
             {message && <p className="mt-4 text-xs leading-relaxed text-[rgba(30,50,90,0.75)]">{message}</p>}
           </aside>

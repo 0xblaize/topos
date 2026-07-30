@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { deleteRoom, getRoom, updateRoom, type FurniturePlacement } from "@/lib/rooms";
 import { getSessionUser } from "@/lib/session";
 import { isValidFurniturePlacement } from "@/lib/furniture";
+import { deleteAsset } from "@/lib/storage";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -47,6 +48,8 @@ export async function DELETE(request: Request, context: RouteContext) {
   const session = await getSessionUser(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
-  if (!(await deleteRoom(session.id, id))) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+  const room = await getRoom(session.id, id);
+  if (!room || !(await deleteRoom(session.id, id))) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+  await Promise.allSettled([room.sourceImageKey, room.maskKey, room.cleanedImageKey].filter((key): key is string => Boolean(key)).map((key) => deleteAsset(key)));
   return NextResponse.json({ deleted: true });
 }

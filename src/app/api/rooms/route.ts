@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createRoom, listRooms } from "@/lib/rooms";
+import { createRoom, listRooms, updateRoom } from "@/lib/rooms";
 import { getSessionUser } from "@/lib/session";
+import { putDataUrl } from "@/lib/storage";
 
 const MAX_IMAGE_LENGTH = 12_000_000;
 const imageDataUrlPattern = /^data:image\/(jpeg|jpg|png|webp);base64,[a-zA-Z0-9+/=]+$/;
@@ -29,5 +30,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Upload a supported JPEG, PNG, or WebP image under 9 MB" }, { status: 400 });
   }
 
-  return NextResponse.json({ room: await createRoom(session.id, name, sourceImageDataUrl) }, { status: 201 });
+  const room = await createRoom(session.id, name, sourceImageDataUrl);
+  let asset;
+  try {
+    asset = await putDataUrl(`rooms/${room.id}/source`, sourceImageDataUrl);
+  } catch {
+    asset = undefined;
+  }
+  const updatedRoom = asset ? await updateRoom(session.id, room.id, { sourceImageKey: asset.key }) : room;
+  return NextResponse.json({ room: updatedRoom }, { status: 201 });
 }
