@@ -19,6 +19,7 @@ export function BottomLeftCard() {
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
+        onClick={() => { window.location.href = "/capture"; }}
         className="flex items-center bg-white rounded-full pl-1.5 pr-5 py-1.5 gap-2 hover:bg-white/90 transition-colors self-start group"
       >
         <div className="bg-[rgba(30,50,90,0.1)] p-1 rounded-full flex items-center justify-center">
