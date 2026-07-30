@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Component, type ReactNode, Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
+import { Clone, Html, useGLTF } from "@react-three/drei";
 import { ArrowLeft, Armchair, LampCeiling, Loader2, Save, Sparkles, TreePine } from "lucide-react";
 import { motion } from "motion/react";
 import type { FurniturePlacement, Room } from "@/lib/rooms";
@@ -10,10 +11,20 @@ const WORLD_WIDTH = 10;
 const WORLD_HEIGHT = 6;
 
 const catalog = [
-  { id: "sofa", label: "Sofa", icon: Armchair },
-  { id: "lamp", label: "Lamp", icon: LampCeiling },
-  { id: "plant", label: "Plant", icon: TreePine },
-];
+  { id: "sofa", label: "Sofa", icon: Armchair, path: "/models/sofa.glb" },
+  { id: "lamp", label: "Lamp", icon: LampCeiling, path: "/models/lamp.glb" },
+  { id: "plant", label: "Plant", icon: TreePine, path: "/models/plant.glb" },
+] as const;
+
+type FurnitureModelId = (typeof catalog)[number]["id"];
+
+const modelPaths: Record<FurnitureModelId, string> = Object.fromEntries(
+  catalog.map((item) => [item.id, item.path]),
+) as Record<FurnitureModelId, string>;
+
+function isFurnitureModelId(value: string): value is FurnitureModelId {
+  return value in modelPaths;
+}
 
 export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
   const [room, setRoom] = useState(initialRoom);
@@ -102,15 +113,17 @@ export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
               <Canvas orthographic camera={{ position: [0, 0, 10], zoom: 85 }} onPointerMissed={() => setActiveId(null)}>
                 <ambientLight intensity={2} />
                 <directionalLight position={[2, 4, 6]} intensity={2} />
-                {placements.map((placement) => (
-                  <FurnitureObject
-                    key={placement.id}
-                    placement={placement}
-                    active={placement.id === activeId}
-                    onSelect={() => setActiveId(placement.id)}
-                    onMove={(x, y) => moveFurniture(placement.id, x, y)}
-                  />
-                ))}
+                <Suspense fallback={<Html center className="rounded-full bg-white/85 px-3 py-1.5 text-xs text-[rgba(30,50,90,0.7)]">Loading furniture…</Html>}>
+                  {placements.map((placement) => (
+                    <FurnitureObject
+                      key={placement.id}
+                      placement={placement}
+                      active={placement.id === activeId}
+                      onSelect={() => setActiveId(placement.id)}
+                      onMove={(x, y) => moveFurniture(placement.id, x, y)}
+                    />
+                  ))}
+                </Suspense>
               </Canvas>
               <div className="pointer-events-none absolute left-4 top-4 rounded-full bg-white/70 px-3 py-1.5 text-[11px] uppercase tracking-wider text-[rgba(30,50,90,0.7)]">Static depth plane</div>
             </div>
@@ -137,12 +150,33 @@ export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
 }
 
 function FurnitureObject({ placement, active, onSelect, onMove }: { placement: FurniturePlacement; active: boolean; onSelect: () => void; onMove: (x: number, y: number) => void }) {
+  const modelId = isFurnitureModelId(placement.modelId) ? placement.modelId : null;
+
   return <group position={[((placement.x - 0.5) * WORLD_WIDTH), ((0.5 - placement.y) * WORLD_HEIGHT), 0]} scale={placement.scale} rotation={[0, 0, placement.rotation]} onPointerDown={(event) => { event.stopPropagation(); onSelect(); }} onPointerMove={(event) => { if (!active || event.buttons === 0) return; event.stopPropagation(); onMove(clamp(event.point.x / WORLD_WIDTH + 0.5, 0.08, 0.92), clamp(0.5 - event.point.y / WORLD_HEIGHT, 0.08, 0.92)); }}>
-    <mesh castShadow><boxGeometry args={placement.modelId === "sofa" ? [2.7, 0.75, 0.8] : placement.modelId === "lamp" ? [0.35, 1.8, 0.35] : [0.75, 1.8, 0.75]} /><meshStandardMaterial color={placement.modelId === "plant" ? "#54735c" : placement.modelId === "lamp" ? "#b49565" : "#52637d"} /></mesh>
-    {placement.modelId === "sofa" && <mesh position={[0, 0.55, 0]}><boxGeometry args={[2.7, 0.5, 0.8]} /><meshStandardMaterial color="#71829b" /></mesh>}
-    {placement.modelId === "plant" && <mesh position={[0, 1, 0]}><coneGeometry args={[0.8, 1.2, 8]} /><meshStandardMaterial color="#628b69" /></mesh>}
+    {modelId ? <FurnitureAssetBoundary fallback={<FurnitureUnavailable label={`${placement.modelId} unavailable`} />}><FurnitureAsset modelId={modelId} /></FurnitureAssetBoundary> : <FurnitureUnavailable label="Unknown furniture" />}
     {active && <mesh position={[0, 0, -0.45]}><ringGeometry args={[1.2, 1.28, 32]} /><meshBasicMaterial color="#aebbd0" transparent opacity={0.8} /></mesh>}
   </group>;
+}
+
+function FurnitureAsset({ modelId }: { modelId: FurnitureModelId }) {
+  const { scene } = useGLTF(modelPaths[modelId]);
+  return <Clone object={scene} castShadow receiveShadow />;
+}
+
+function FurnitureUnavailable({ label }: { label: string }) {
+  return <Html center className="pointer-events-none whitespace-nowrap rounded-full bg-[rgba(180,68,58,0.92)] px-2 py-1 text-[10px] text-white shadow-sm">{label}</Html>;
+}
+
+class FurnitureAssetBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
 }
 
 function clamp(value: number, min: number, max: number) {
