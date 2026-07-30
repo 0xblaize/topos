@@ -1,0 +1,11 @@
+Topos is an AI-powered room visualization and interior design workspace. It helps users transform an existing room into a clean, editable canvas before experimenting with furniture and layouts.
+
+The workflow starts with a single room photo. Users upload or capture the image, draw a mask over unwanted clutter, and send the masked area to an AI inpainting service. Replicate SDXL removes the selected objects while preserving the room’s walls, floor, lighting, windows, and perspective. The cleaned image becomes the base for a static AR-style design workspace.
+
+Inside the workspace, users can add realistic 3D furniture models, move them around the room, scale them, rotate them, remove them, and save their layout. The dashboard stores multiple room projects and shows their processing state, saved furniture, and capture history.
+
+Topos uses passkey authentication so each user has a private workspace. Room data, furniture placements, processing states, and authentication records are stored persistently. Large room assets can be stored in private object storage, while asynchronous AI jobs update the workspace through secure webhooks.
+
+Topos is currently a static AR canvas rather than live camera AR. It does not yet provide depth sensing, real-world occlusion, camera tracking, or guaranteed physical measurements.
+
+Stack: Next.js App Router, React, TypeScript, Tailwind CSS, Motion, React Three Fiber, Drei, Three.js, Neon Postgres, WebAuthn passkeys, Replicate SDXL inpainting, Cloudflare R2-compatible storage, and Vercel deployment.

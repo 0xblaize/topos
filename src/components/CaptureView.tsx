@@ -139,7 +139,12 @@ export function CaptureView({ username }: CaptureViewProps) {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Could not save mask");
-      setMessage("Mask saved. AI erase is ready when a provider is configured.");
+
+      const processResponse = await fetch(`/api/rooms/${roomId}/process`, { method: "POST" });
+      const processBody = await processResponse.json();
+      if (!processResponse.ok) throw new Error(processBody.error ?? "Could not start AI erase");
+      setMessage(processBody.processing ? "AI erase started. Opening your room workspace…" : "AI erase complete. Opening your room workspace…");
+      router.go(`/room/${roomId}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save mask");
     } finally {
@@ -191,7 +196,7 @@ export function CaptureView({ username }: CaptureViewProps) {
                 <p className="mt-5 text-xs leading-relaxed text-[rgba(30,50,90,0.6)]">The red overlay is your mask. It is sent to the erase pipeline as a real PNG mask.</p>
                 <div className="mt-6 grid gap-2">
                   {!roomId && <ActionButton icon={<Check className="h-4 w-4" />} label="Save capture" busy={busy} onClick={createRoom} />}
-                  {roomId && <ActionButton icon={<Eraser className="h-4 w-4" />} label="Save clutter mask" busy={busy} onClick={saveMask} />}
+                  {roomId && <ActionButton icon={<Eraser className="h-4 w-4" />} label="Erase painted area" busy={busy} onClick={saveMask} />}
                   <button onClick={resetMask} className="flex items-center justify-center gap-2 rounded-full border border-[rgba(30,50,90,0.14)] py-3 text-sm text-[rgba(30,50,90,0.7)] hover:bg-white/70"><RotateCcw className="h-4 w-4" /> Reset mask</button>
                   <label className="flex cursor-pointer items-center justify-center rounded-full border border-[rgba(30,50,90,0.14)] py-3 text-sm text-[rgba(30,50,90,0.7)] hover:bg-white/70">Replace photo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={onFileChange} className="sr-only" /></label>
                 </div>
