@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { processRoomImage, AiUnavailableError } from "@/lib/ai/provider";
+import { processRoomImage, AiBusyError, AiUnavailableError } from "@/lib/ai/provider";
 import { getRoom, updateRoom } from "@/lib/rooms";
 import { getSessionUser } from "@/lib/session";
 
@@ -20,11 +20,12 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ room: updatedRoom });
   } catch (error) {
     const unavailable = error instanceof AiUnavailableError;
+    const busy = error instanceof AiBusyError;
     const updatedRoom = await updateRoom(session.id, id, { status: unavailable ? "ai_unavailable" : "mask_ready" });
     return NextResponse.json({
       error: error instanceof Error ? error.message : "AI processing failed",
-      code: unavailable ? "ai_unavailable" : "processing_failed",
+      code: unavailable ? "ai_unavailable" : busy ? "ai_busy" : "processing_failed",
       room: updatedRoom,
-    }, { status: unavailable ? 503 : 502 });
+    }, { status: unavailable || busy ? 503 : 502 });
   }
 }

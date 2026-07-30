@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
-import { consumeChallenge, createSession, findUserByCredentialId, getPendingChallenge, getUserById, SESSION_COOKIE, updateCredentialCounter } from "@/lib/authStore";
+import { consumeChallenge, createSession, findUserByCredentialId, getPendingChallenge, getUserById, SESSION_COOKIE, sessionCookieOptions, updateCredentialCounter } from "@/lib/authStore";
 import { getRpConfig } from "@/lib/rp";
 
 export async function POST(request: Request) {
@@ -38,11 +38,6 @@ export async function POST(request: Request) {
   const currentUser = await getUserById(user.id);
 
   const res = NextResponse.json({ verified: true, username: currentUser?.username ?? user.username });
-  res.cookies.set(SESSION_COOKIE, await createSession(user.id), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: origin.startsWith("https://"),
-    path: "/",
-  });
+  res.cookies.set(SESSION_COOKIE, await createSession(user.id), sessionCookieOptions(origin.startsWith("https://")));
   return res;
 }

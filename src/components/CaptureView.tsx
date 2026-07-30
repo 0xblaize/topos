@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, PointerEvent, useEffect, useRef, useState, type ReactNode } from "react";
+import { ChangeEvent, DragEvent, PointerEvent, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, Eraser, ImagePlus, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -22,6 +22,7 @@ export function CaptureView({ username }: CaptureViewProps) {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [draggingFile, setDraggingFile] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -33,8 +34,12 @@ export function CaptureView({ username }: CaptureViewProps) {
   }, [imageDataUrl, imageReady, strokes, activeStroke]);
 
   const loadFile = (file?: File) => {
-    if (!file || !file.type.startsWith("image/")) {
+    if (!file || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setMessage("Choose a JPEG, PNG, or WebP room photo");
+      return;
+    }
+    if (file.size > 9 * 1024 * 1024) {
+      setMessage("Choose an image under 9 MB");
       return;
     }
     const reader = new FileReader();
@@ -50,6 +55,16 @@ export function CaptureView({ username }: CaptureViewProps) {
   };
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => loadFile(event.target.files?.[0]);
+  const onDragOver = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setDraggingFile(true);
+  };
+  const onDragLeave = () => setDraggingFile(false);
+  const onDrop = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setDraggingFile(false);
+    loadFile(event.dataTransfer.files[0]);
+  };
   const pointFromEvent = (event: PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -156,7 +171,7 @@ export function CaptureView({ username }: CaptureViewProps) {
           </div>
 
           {!imageDataUrl ? (
-            <label className="flex min-h-[360px] cursor-pointer flex-col items-center justify-center rounded-[2rem] border border-dashed border-[rgba(30,50,90,0.22)] bg-white/50 p-8 text-center transition-colors hover:bg-white/70">
+            <label onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} className={`flex min-h-[360px] cursor-pointer flex-col items-center justify-center rounded-[2rem] border border-dashed p-8 text-center transition-colors ${draggingFile ? "border-[rgba(30,50,90,0.55)] bg-white/80" : "border-[rgba(30,50,90,0.22)] bg-white/50 hover:bg-white/70"}`}>
               <ImagePlus className="mb-4 h-10 w-10 text-[rgba(30,50,90,0.7)]" />
               <span className="text-lg text-[rgba(30,50,90,0.85)]">Drop a room photo here</span>
               <span className="mt-2 text-sm text-[rgba(30,50,90,0.55)]">or use your camera / file picker</span>

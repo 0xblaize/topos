@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight, Boxes, Eraser, LogOut, Plus, ScanLine, Sparkles } from "lucide-react";
 import { statusLabel, type Room, type RoomStatus } from "@/lib/rooms";
@@ -20,10 +21,23 @@ const formatCapturedAt = (value: string) => new Intl.DateTimeFormat(undefined, {
 }).format(new Date(value));
 
 export function DashboardView({ username, rooms }: { username: string; rooms: Room[] }) {
+  const [visibleRooms, setVisibleRooms] = useState(rooms);
+  const [message, setMessage] = useState<string | null>(null);
+  const deleteRoom = async (event: React.MouseEvent, id: string, name: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!window.confirm(`Delete “${name}” and its captured images?`)) return;
+    const response = await fetch(`/api/rooms/${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setMessage("Could not delete that room. Try again.");
+      return;
+    }
+    setVisibleRooms((current) => current.filter((room) => room.id !== id));
+  };
   const stats = [
-    { label: "Rooms Captured", value: String(rooms.length), icon: ScanLine },
-    { label: "Objects Erased", value: String(rooms.reduce((total, room) => total + room.objectsRemoved, 0)), icon: Eraser },
-    { label: "Models Placed", value: String(rooms.reduce((total, room) => total + room.itemsPlaced, 0)), icon: Boxes },
+    { label: "Rooms Captured", value: String(visibleRooms.length), icon: ScanLine },
+    { label: "Rooms Cleared", value: String(visibleRooms.filter((room) => room.status === "cleared" || room.status === "furnished").length), icon: Eraser },
+    { label: "Models Placed", value: String(visibleRooms.reduce((total, room) => total + room.itemsPlaced, 0)), icon: Boxes },
   ];
 
   const signOut = async () => {
@@ -104,10 +118,10 @@ export function DashboardView({ username, rooms }: { username: string; rooms: Ro
           <div className="rounded-[1.5rem] md:rounded-[2rem] bg-white/50 backdrop-blur-xl border border-white/40 overflow-hidden">
             <div className="px-5 md:px-7 py-4 border-b border-[rgba(30,50,90,0.08)] flex items-center justify-between">
               <h2 className="text-[16px] md:text-[18px] font-normal text-[rgba(30,50,90,0.95)]">Room workspace</h2>
-              <span className="text-[12px] text-[rgba(30,50,90,0.55)]">{rooms.length} rooms</span>
+              <span className="text-[12px] text-[rgba(30,50,90,0.55)]">{visibleRooms.length} rooms</span>
             </div>
 
-            {rooms.length === 0 ? (
+            {visibleRooms.length === 0 ? (
               <div className="px-5 md:px-7 py-12 text-center">
                 <p className="text-[15px] md:text-[17px] text-[rgba(30,50,90,0.8)]">No room captures yet</p>
                 <p className="mt-2 text-[12px] md:text-[13px] text-[rgba(30,50,90,0.55)]">
@@ -115,7 +129,7 @@ export function DashboardView({ username, rooms }: { username: string; rooms: Ro
                 </p>
               </div>
             ) : (
-              rooms.map((room, i) => (
+              visibleRooms.map((room, i) => (
                 <Link href={`/room/${room.id}`} key={room.id} className="block">
                   <motion.div
                   initial={{ opacity: 0, x: -12 }}
@@ -128,7 +142,7 @@ export function DashboardView({ username, rooms }: { username: string; rooms: Ro
                   <div className="flex-1 min-w-0">
                     <p className="text-[15px] md:text-[17px] font-normal text-[rgba(30,50,90,0.95)] truncate">{room.name}</p>
                     <p className="text-[12px] text-[rgba(30,50,90,0.55)]">
-                      {room.objectsRemoved} erased · {room.itemsPlaced} placed · {formatCapturedAt(room.capturedAt)}
+                      {room.status === "cleared" || room.status === "furnished" ? "cleared" : "not cleared"} · {room.itemsPlaced} placed · {formatCapturedAt(room.capturedAt)}
                     </p>
                   </div>
 
@@ -136,6 +150,7 @@ export function DashboardView({ username, rooms }: { username: string; rooms: Ro
                     {statusLabel[room.status]}
                   </span>
 
+                  <button onClick={(event) => deleteRoom(event, room.id, room.name)} className="rounded-full border border-[rgba(180,68,58,0.2)] px-3 py-2 text-xs text-[#9e4037] hover:bg-[rgba(180,68,58,0.08)]">Delete</button>
                   <div className="bg-[rgba(30,50,90,0.05)] w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center border border-[rgba(30,50,90,0.1)] shrink-0 group-hover:bg-[rgba(30,50,90,0.1)] transition-colors">
                     <ArrowUpRight className="w-4 h-4 text-[rgba(30,50,90,0.8)]" />
                   </div>

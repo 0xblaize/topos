@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteRoom, getRoom, updateRoom, type FurniturePlacement } from "@/lib/rooms";
 import { getSessionUser } from "@/lib/session";
+import { isValidFurniturePlacement } from "@/lib/furniture";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -33,11 +34,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes.name = name;
   }
   if (Array.isArray(body.furniture)) {
-    const furniture = body.furniture.filter((item): item is FurniturePlacement => {
-      if (!item || typeof item !== "object") return false;
-      const value = item as Partial<FurniturePlacement>;
-      return typeof value.id === "string" && typeof value.modelId === "string" && [value.x, value.y, value.scale, value.rotation].every((number) => typeof number === "number" && Number.isFinite(number));
-    });
+    const furniture = body.furniture.filter((item): item is FurniturePlacement => isValidFurniturePlacement(item));
     if (furniture.length !== body.furniture.length || furniture.length > 12) return NextResponse.json({ error: "Invalid furniture placements" }, { status: 400 });
     changes.furniture = furniture;
     changes.status = furniture.length > 0 ? "furnished" : "cleared";

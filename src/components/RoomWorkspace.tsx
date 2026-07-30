@@ -3,32 +3,29 @@
 import { Component, type ReactNode, Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Clone, Html, useGLTF } from "@react-three/drei";
-import { ArrowLeft, Armchair, LampCeiling, Loader2, Save, Sparkles, TreePine } from "lucide-react";
+import { ArrowLeft, Armchair, LampCeiling, Loader2, Minus, Plus, Redo2, RotateCcw, Save, Sparkles, Trash2, TreePine, Undo2 } from "lucide-react";
 import { motion } from "motion/react";
 import type { FurniturePlacement, Room } from "@/lib/rooms";
+import { furnitureCatalog, isFurnitureModelId, type FurnitureModelId } from "@/lib/furniture";
 
 const WORLD_WIDTH = 10;
 const WORLD_HEIGHT = 6;
 
-const catalog = [
-  { id: "sofa", label: "Sofa", icon: Armchair, path: "/models/sofa.glb" },
-  { id: "lamp", label: "Lamp", icon: LampCeiling, path: "/models/lamp.glb" },
-  { id: "plant", label: "Plant", icon: TreePine, path: "/models/plant.glb" },
-] as const;
-
-type FurnitureModelId = (typeof catalog)[number]["id"];
+const catalog = furnitureCatalog.map((item) => ({
+  ...item,
+  icon: item.id === "sofa" ? Armchair : item.id === "lamp" ? LampCeiling : TreePine,
+}));
 
 const modelPaths: Record<FurnitureModelId, string> = Object.fromEntries(
-  catalog.map((item) => [item.id, item.path]),
+  furnitureCatalog.map((item) => [item.id, item.path]),
 ) as Record<FurnitureModelId, string>;
-
-function isFurnitureModelId(value: string): value is FurnitureModelId {
-  return value in modelPaths;
-}
 
 export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
   const [room, setRoom] = useState(initialRoom);
   const [placements, setPlacements] = useState(initialRoom.furniture);
+  const [savedPlacements, setSavedPlacements] = useState(initialRoom.furniture);
+  const [history, setHistory] = useState<typeof initialRoom.furniture[]>([]);
+  const [future, setFuture] = useState<typeof initialRoom.furniture[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState("sofa");
   const [busy, setBusy] = useState(false);
@@ -43,12 +40,52 @@ export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
       scale: selectedModel === "lamp" ? 0.8 : 1,
       rotation: 0,
     };
-    setPlacements([...placements, placement]);
+    updatePlacements([...placements, placement]);
     setActiveId(placement.id);
   };
 
+  const updatePlacements = (next: typeof placements) => {
+    setHistory((current) => [...current.slice(-19), placements]);
+    setFuture([]);
+    setPlacements(next);
+  };
+
   const moveFurniture = (id: string, x: number, y: number) => {
-    setPlacements(placements.map((placement) => placement.id === id ? { ...placement, x, y } : placement));
+    updatePlacements(placements.map((placement) => placement.id === id ? { ...placement, x, y } : placement));
+  };
+
+  const selectedPlacement = placements.find((placement) => placement.id === activeId);
+  const adjustSelected = (changes: Partial<FurniturePlacement>) => {
+    if (!selectedPlacement) return;
+    updatePlacements(placements.map((placement) => placement.id === activeId ? { ...placement, ...changes } : placement));
+  };
+
+  const undo = () => {
+    const previous = history.at(-1);
+    if (!previous) return;
+    setFuture((current) => [...current, placements]);
+    setHistory((current) => current.slice(0, -1));
+    setPlacements(previous);
+  };
+
+  const redo = () => {
+    const next = future.at(-1);
+    if (!next) return;
+    setHistory((current) => [...current, placements]);
+    setFuture((current) => current.slice(0, -1));
+    setPlacements(next);
+  };
+
+  const resetPlacements = () => {
+    setHistory((current) => [...current.slice(-19), placements]);
+    setFuture([]);
+    setPlacements(savedPlacements);
+  };
+
+  const removeSelected = () => {
+    if (!activeId) return;
+    updatePlacements(placements.filter((placement) => placement.id !== activeId));
+    setActiveId(null);
   };
 
   const savePlacements = async () => {
@@ -64,6 +101,9 @@ export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
       if (!response.ok) throw new Error(body.error ?? "Could not save furniture");
       setRoom(body.room);
       setPlacements(body.room.furniture);
+      setSavedPlacements(body.room.furniture);
+      setHistory([]);
+      setFuture([]);
       setMessage("Furniture placement saved.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save furniture");
@@ -137,7 +177,18 @@ export function RoomWorkspace({ initialRoom }: { initialRoom: Room }) {
                 return <button key={item.id} onClick={() => setSelectedModel(item.id)} className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${selectedModel === item.id ? "border-[rgba(30,50,90,0.35)] bg-white/80" : "border-white/40 bg-white/40 hover:bg-white/70"}`}><Icon className="h-5 w-5 text-[rgba(30,50,90,0.8)]" /><span className="text-sm text-[rgba(30,50,90,0.85)]">{item.label}</span></button>;
               })}
             </div>
-            <button onClick={addFurniture} className="mt-4 w-full rounded-full bg-[rgba(30,50,90,0.9)] py-3 text-sm text-white hover:bg-[rgba(30,50,90,1)]">Add to canvas</button>
+            <button onClick={addFurniture} disabled={busy} className="mt-4 w-full rounded-full bg-[rgba(30,50,90,0.9)] py-3 text-sm text-white hover:bg-[rgba(30,50,90,1)] disabled:opacity-50">Add to canvas</button>
+            <div className="mt-2 grid grid-cols-4 gap-2">
+              <button onClick={undo} disabled={!history.length || busy} aria-label="Undo" className="flex items-center justify-center rounded-full border border-[rgba(30,50,90,0.14)] py-2 text-[rgba(30,50,90,0.7)] disabled:opacity-40"><Undo2 className="h-4 w-4" /></button>
+              <button onClick={redo} disabled={!future.length || busy} aria-label="Redo" className="flex items-center justify-center rounded-full border border-[rgba(30,50,90,0.14)] py-2 text-[rgba(30,50,90,0.7)] disabled:opacity-40"><Redo2 className="h-4 w-4" /></button>
+              <button onClick={resetPlacements} disabled={busy} aria-label="Reset changes" className="flex items-center justify-center rounded-full border border-[rgba(30,50,90,0.14)] py-2 text-[rgba(30,50,90,0.7)] disabled:opacity-40"><RotateCcw className="h-4 w-4" /></button>
+              <button onClick={removeSelected} disabled={!selectedPlacement || busy} aria-label="Remove selected" className="flex items-center justify-center rounded-full border border-[rgba(180,68,58,0.2)] py-2 text-[#9e4037] disabled:opacity-40"><Trash2 className="h-4 w-4" /></button>
+            </div>
+            {selectedPlacement && <div className="mt-3 grid grid-cols-3 gap-2">
+              <button onClick={() => adjustSelected({ rotation: selectedPlacement.rotation - 0.15 })} disabled={busy} className="rounded-full border border-[rgba(30,50,90,0.14)] py-2 text-xs text-[rgba(30,50,90,0.7)]">Rotate −</button>
+              <button onClick={() => adjustSelected({ scale: Math.max(0.45, selectedPlacement.scale - 0.1) })} disabled={busy} className="flex items-center justify-center rounded-full border border-[rgba(30,50,90,0.14)] py-2 text-[rgba(30,50,90,0.7)]"><Minus className="h-3 w-3" /></button>
+              <button onClick={() => adjustSelected({ scale: Math.min(1.6, selectedPlacement.scale + 0.1) })} disabled={busy} className="flex items-center justify-center rounded-full border border-[rgba(30,50,90,0.14)] py-2 text-[rgba(30,50,90,0.7)]"><Plus className="h-3 w-3" /></button>
+            </div>}
             <button onClick={savePlacements} disabled={busy || placements.length === 0} className="mt-2 flex w-full items-center justify-center gap-2 rounded-full border border-[rgba(30,50,90,0.16)] py-3 text-sm text-[rgba(30,50,90,0.75)] disabled:opacity-50"><Save className="h-4 w-4" /> {busy ? "Saving…" : "Save placement"}</button>
             {room.maskDataUrl && !room.cleanedImageDataUrl && <button onClick={processRoom} disabled={busy} className="mt-5 w-full rounded-full border border-[rgba(180,68,58,0.2)] bg-[rgba(180,68,58,0.07)] py-3 text-sm text-[#9e4037] disabled:opacity-50">Run AI erase</button>}
             <p className="mt-5 text-xs leading-relaxed text-[rgba(30,50,90,0.58)]">Furniture is placed on a fixed-angle floor plane. This is static AR, not live camera tracking.</p>

@@ -1,6 +1,7 @@
 import type { Room } from "@/lib/rooms";
 
 export class AiUnavailableError extends Error {}
+export class AiBusyError extends Error {}
 
 type ReplicatePrediction = {
   id: string;
@@ -42,6 +43,7 @@ export async function processRoomImage(room: Room) {
     }),
   });
 
+  if (predictionResponse.status === 429) throw new AiBusyError("The AI service is busy. Wait a moment and try again.");
   if (!predictionResponse.ok) throw new Error(`Replicate returned ${predictionResponse.status}`);
   const prediction = await predictionResponse.json() as ReplicatePrediction;
   const completed = await waitForPrediction(prediction, replicateToken);

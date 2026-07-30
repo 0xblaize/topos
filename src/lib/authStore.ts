@@ -21,8 +21,27 @@ export type SessionUser = {
 };
 
 export const SESSION_COOKIE = "topos_session";
+export const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const CHALLENGE_TTL_MS = 10 * 60 * 1000;
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = SESSION_TTL_SECONDS * 1000;
+
+type RegistrationIntentRow = { username: string; user_handle: string; challenge: string };
+
+export function normalizeWorkspaceName(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  return /^[a-z0-9](?:[a-z0-9-]{1,46}[a-z0-9])?$/.test(normalized) ? normalized : undefined;
+}
+
+export function sessionCookieOptions(secure: boolean) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure,
+    path: "/",
+    maxAge: SESSION_TTL_SECONDS,
+  };
+}
 
 type UserRow = { id: string; username: string };
 type CredentialRow = { id: string; user_id: string; public_key: Uint8Array | Buffer | string; counter: number | string; transports: AuthenticatorTransportFuture[] | null };
@@ -39,14 +58,42 @@ export async function getUserById(id: string) {
   return rows[0] ? hydrateUser(rows[0]) : undefined;
 }
 
-export async function upsertUser(username: string) {
-  const normalized = username.trim().toLowerCase();
+export async function createUser(username: string) {
   const rows = await query<UserRow>`
-    INSERT INTO users (username) VALUES (${normalized})
-    ON CONFLICT (username) DO UPDATE SET username = EXCLUDED.username
+    INSERT INTO users (username) VALUES (${username})
     RETURNING id, username
   `;
   return hydrateUser(rows[0]);
+}
+
+export async function createRegistrationIntent(username: string, userHandle: string, challenge: string) {
+  await db()`DELETE FROM registration_intents WHERE expires_at <= now()`;
+  const rows = await query<RegistrationIntentRow>`
+    INSERT INTO registration_intents (username, user_handle, challenge, expires_at)
+    VALUES (${username}, ${userHandle}, ${challenge}, ${new Date(Date.now() + CHALLENGE_TTL_MS).toISOString()})
+    ON CONFLICT (username) DO NOTHING
+    RETURNING username, user_handle, challenge
+  `;
+  return rows[0];
+}
+
+export async function getRegistrationIntent(username: string) {
+  const rows = await query<RegistrationIntentRow>`
+    SELECT username, user_handle, challenge
+    FROM registration_intents
+    WHERE username = ${username} AND expires_at > now()
+    LIMIT 1
+  `;
+  return rows[0];
+}
+
+export async function consumeRegistrationIntent(username: string, challenge: string) {
+  const rows = await query<RegistrationIntentRow>`
+    DELETE FROM registration_intents
+    WHERE username = ${username} AND challenge = ${challenge} AND expires_at > now()
+    RETURNING username, user_handle, challenge
+  `;
+  return rows[0];
 }
 
 async function hydrateUser(row: UserRow): Promise<StoredUser> {
@@ -94,6 +141,14 @@ export async function consumeChallenge(challenge: string) {
     RETURNING challenge
   `;
   return Boolean(rows[0]);
+}
+
+export async function deleteUncredentialedUser(id: string) {
+  await db()`
+    DELETE FROM users
+    WHERE id = ${id}
+      AND NOT EXISTS (SELECT 1 FROM credentials WHERE user_id = ${id})
+  `;
 }
 
 export async function addCredential(credential: StoredCredential) {
