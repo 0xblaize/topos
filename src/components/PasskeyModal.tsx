@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Fingerprint, KeyRound, Loader2, X } from "lucide-react";
-import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import { startAuthentication, startRegistration, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 
 type Mode = "signin" | "create";
 
@@ -19,9 +19,18 @@ export function PasskeyModal({ open, onClose }: { open: boolean; onClose: () => 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Something went wrong");
-    return data;
+    const text = await res.text();
+    let data: { error?: string } | null = null;
+    try {
+      data = text ? JSON.parse(text) as { error?: string } : null;
+    } catch {
+      // A deployment error can return an empty or non-JSON response.
+    }
+    if (!res.ok) {
+      throw new Error(data?.error ?? `Authentication service failed (${res.status}). Check the Neon database migration.`);
+    }
+    if (!data) throw new Error("Authentication service returned an empty response");
+    return data as Record<string, unknown>;
   };
 
   const submit = async () => {
@@ -36,11 +45,11 @@ export function PasskeyModal({ open, onClose }: { open: boolean; onClose: () => 
     try {
       if (mode === "create") {
         const options = await post("/api/auth/register/options", { username });
-        const response = await startRegistration({ optionsJSON: options });
+        const response = await startRegistration({ optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON });
         await post("/api/auth/register/verify", { username, response });
       } else {
         const options = await post("/api/auth/login/options", { username });
-        const response = await startAuthentication({ optionsJSON: options });
+        const response = await startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON });
         await post("/api/auth/login/verify", { response });
       }
       window.location.href = "/dashboard";
